@@ -13,10 +13,12 @@ export default defineNuxtConfig({
   // (com prefixo, `components/forms/ReleaseForm.vue` viraria `<FormsReleaseForm>`.)
   components: [{ path: '~/components', pathPrefix: false }],
 
-  // Variáveis privadas (servidor) e públicas (cliente).
-  // MONGODB_URI deve ser definida em .env na raiz do projeto.
+  // Variáveis públicas (expostas ao cliente). MONGODB_URI é lida
+  // diretamente do ambiente no plugin do Mongoose (server-only) — não
+  // entra no runtimeConfig para evitar que o Nitro inline o valor nos
+  // artefatos de build (o scanner do Netlify bloqueia builds que vazam
+  // segredos).
   runtimeConfig: {
-    mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/release-notes',
     public: {
       appName: 'Release & Issue Tracker'
     }

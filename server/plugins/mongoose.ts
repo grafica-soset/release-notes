@@ -2,14 +2,17 @@ import mongoose from 'mongoose'
 
 /**
  * Plugin Nitro responsável por inicializar a conexão com o MongoDB
- * quando o servidor sobe. A URI é lida do runtimeConfig (env MONGODB_URI).
+ * quando o servidor sobe.
+ *
+ * A URI é lida de `process.env.MONGODB_URI` em runtime (não via
+ * `runtimeConfig`) para evitar que o Nitro embuta o segredo nos artefatos
+ * de build — o scanner do Netlify bloqueia builds com segredos inlineados.
  *
  * O Mongoose mantém um pool de conexões internamente, então não precisamos
  * abrir/fechar a conexão a cada request.
  */
 export default defineNitroPlugin(async () => {
-  const config = useRuntimeConfig()
-  const uri = config.mongodbUri as string
+  const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/release-notes'
 
   // Evita reconectar em hot-reload do dev (HMR).
   if (mongoose.connection.readyState >= 1) return
