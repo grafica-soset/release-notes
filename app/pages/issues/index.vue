@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useIssuesStore } from '~/stores/issues'
 import { useSessionStore } from '~/stores/session'
-import type { Issue, IssueStatus } from '~/types'
+import type { Comment, Issue, IssueStatus } from '~/types'
 
 useHead({ title: 'Issues' })
 
@@ -10,14 +10,52 @@ const session = useSessionStore()
 
 await store.fetchAll()
 
-// --- Criação manual de issue ---
+// --- Modal ---
+type Mode = 'create' | 'edit' | 'view' | 'create-from-comment'
+const mode = ref<Mode>('create')
 const showForm = ref(false)
+const editing = ref<Issue | null>(null)
+const draft = ref<Partial<Issue> | null>(null)
 const submitting = ref(false)
 const formError = ref<string | null>(null)
 
-async function handleCreate(payload: {
+function openCreate() {
+  mode.value = 'create'
+  editing.value = null
+  draft.value = null
+  formError.value = null
+  showForm.value = true
+}
+
+function openIssue(issue: Issue) {
+  // Admin edita; cliente apenas visualiza, mas pode comentar via timeline.
+  mode.value = session.isAdmin ? 'edit' : 'view'
+  editing.value = issue
+  draft.value = null
+  formError.value = null
+  showForm.value = true
+}
+
+function openIssueFromComment(comment: Comment) {
+  // Admin abrindo nova issue a partir de um comentário (timeline da issue atual).
+  const parentReleaseId = editing.value?.releaseId ?? null
+  mode.value = 'create-from-comment'
+  editing.value = null
+  draft.value = {
+    title: `Feedback de ${comment.authorName}`,
+    description: comment.content,
+    status: 'BACKLOG',
+    releaseId: parentReleaseId,
+    commentId: comment._id
+  }
+  formError.value = null
+  showForm.value = true
+}
+
+async function handleSubmit(payload: {
   title: string
   description: string
+  prUrl: string
   status: IssueStatus
   releaseId: string | null
   commentId: string | null
@@ -25,10 +63,15 @@ async function handleCreate(payload: {
   submitting.value = true
   formError.value = null
   try {
-    await store.create(payload)
+    if (mode.value === 'edit' && editing.value) {
+      await store.update(editing.value._id, payload)
+    } else {
+      await store.create(payload)
+    }
     showForm.value = false
+    draft.value = null
   } catch (e: any) {
-    formError.value = e?.statusMessage || 'Erro ao criar issue.'
+    formError.value = e?.statusMessage || e?.data?.message || 'Erro ao salvar issue.'
   } finally {
     submitting.value = false
   }
@@ -43,7 +86,6 @@ async function remove(id: string) {
   await store.remove(id)
 }
 
-// Agrupamento por status para exibição em colunas (estilo Kanban).
 const columns: { status: IssueStatus; label: string; color: string }[] = [
   { status: 'BACKLOG', label: 'Backlog', color: 'bg-slate-200 text-slate-700' },
   { status: 'IN_PROGRESS', label: 'Em andamento', color: 'bg-amber-100 text-amber-700' },
@@ -53,6 +95,16 @@ const columns: { status: IssueStatus; label: string; color: string }[] = [
 function columnIssues(status: IssueStatus): Issue[] {
   return store.byStatus(status)
 }
+
+const modalTitle = computed(() => {
+  if (mode.value === 'create') return 'Nova issue'
+  if (mode.value === 'create-from-comment') return 'Abrir issue a partir do comentário'
+  if (mode.value === 'edit') return 'Editar issue'
+  return 'Detalhes da issue'
+})
+
+const formInitial = computed(() => editing.value ?? draft.value ?? undefined)
+const formKey = computed(() => editing.value?._id ?? (mode.value === 'create-from-comment' ? 'from-comment' : 'new'))
 </script>
 
 <template>
@@ -67,7 +119,7 @@ function columnIssues(status: IssueStatus): Issue[] {
       <button
         v-if="session.isAdmin"
         class="btn-primary self-start sm:self-auto"
-        @click="showForm = true"
+        @click="openCreate"
       >
         + Nova issue
       </button>
@@ -88,7 +140,9 @@ function columnIssues(status: IssueStatus): Issue[] {
             v-for="issue in columnIssues(col.status)"
             :key="issue._id"
             :issue="issue"
+            :can-manage="session.isAdmin"
             @update-status="updateStatus"
+            @edit="openIssue"
             @remove="remove"
           />
           <p
@@ -101,13 +155,26 @@ function columnIssues(status: IssueStatus): Issue[] {
       </div>
     </div>
 
-    <UiModal v-model="showForm" title="Nova issue">
+    <UiModal v-model="showForm" :title="modalTitle">
       <p v-if="formError" class="mb-3 text-sm text-red-600">{{ formError }}</p>
       <IssueForm
+        :key="formKey"
+        :initial="formInitial"
         :submitting="submitting"
-        @submit="handleCreate"
+        :readonly="mode === 'view'"
+        @submit="handleSubmit"
         @cancel="showForm = false"
       />
+
+      <!-- Timeline só faz sentido em edit/view (issue persistida). -->
+      <div v-if="editing?._id" class="border-t border-slate-200 pt-5 mt-6">
+        <CommentTimeline
+          :issue-id="editing._id"
+          :show-convert-action="session.isAdmin"
+          :can-remove="session.isAdmin"
+          @convert="openIssueFromComment"
+        />
+      </div>
     </UiModal>
   </section>
 </template>

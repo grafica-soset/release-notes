@@ -1,29 +1,42 @@
 <script setup lang="ts">
 import { useSessionStore } from '~/stores/session'
-import type { UserRole } from '~/types'
 
 const session = useSessionStore()
 const route = useRoute()
 
 const showLogin = ref(false)
-const draft = reactive({ name: '', role: 'CLIENT' as UserRole })
+const draftLogin = ref('')
+const loginError = ref<string | null>(null)
+const submitting = ref(false)
 
 function openLogin() {
-  draft.name = session.name
-  draft.role = session.role
+  draftLogin.value = session.login
+  loginError.value = null
   showLogin.value = true
 }
 
-function submitLogin() {
-  if (!draft.name.trim()) return
-  session.login(draft.name, draft.role)
-  showLogin.value = false
+async function submitLogin() {
+  if (!draftLogin.value.trim()) return
+  submitting.value = true
+  loginError.value = null
+  try {
+    await session.loginByLogin(draftLogin.value)
+    showLogin.value = false
+  } catch (e: any) {
+    loginError.value = e?.message || e?.data?.message || 'Login não encontrado.'
+  } finally {
+    submitting.value = false
+  }
 }
 
-const navLinks = [
-  { to: '/releases', label: 'Releases' },
-  { to: '/issues', label: 'Issues' }
-]
+const navLinks = computed(() => {
+  const base = [
+    { to: '/releases', label: 'Releases' },
+    { to: '/issues', label: 'Issues' }
+  ]
+  if (session.isAdmin) base.push({ to: '/users', label: 'Usuários' })
+  return base
+})
 
 function isActive(to: string) {
   return route.path === to || route.path.startsWith(`${to}/`)
@@ -73,34 +86,28 @@ function isActive(to: string) {
       </div>
     </div>
 
-    <UiModal v-model="showLogin" title="Identificação">
+    <UiModal v-model="showLogin" title="Entrar">
       <form class="space-y-4" @submit.prevent="submitLogin">
         <div>
-          <label class="label" for="login-name">Nome</label>
-          <input id="login-name" v-model="draft.name" class="input" autofocus />
+          <label class="label" for="login-input">Login</label>
+          <input
+            id="login-input"
+            v-model="draftLogin"
+            class="input"
+            autofocus
+            autocomplete="username"
+            placeholder="seu.login"
+          />
+          <p class="mt-1 text-xs text-slate-500">
+            Digite seu login para continuar. Sem cadastro? Peça a um admin para criar um usuário.
+          </p>
         </div>
-        <div>
-          <label class="label">Papel</label>
-          <div class="grid grid-cols-2 gap-2">
-            <label
-              class="flex items-center gap-2 p-3 border rounded-md cursor-pointer"
-              :class="draft.role === 'CLIENT' ? 'border-brand-500 bg-brand-50' : 'border-slate-200'"
-            >
-              <input v-model="draft.role" type="radio" value="CLIENT" class="accent-brand-500" />
-              <span class="text-sm">Cliente</span>
-            </label>
-            <label
-              class="flex items-center gap-2 p-3 border rounded-md cursor-pointer"
-              :class="draft.role === 'ADMIN' ? 'border-brand-500 bg-brand-50' : 'border-slate-200'"
-            >
-              <input v-model="draft.role" type="radio" value="ADMIN" class="accent-brand-500" />
-              <span class="text-sm">Admin</span>
-            </label>
-          </div>
-        </div>
+        <p v-if="loginError" class="text-sm text-red-600">{{ loginError }}</p>
         <div class="flex justify-end gap-2">
           <button type="button" class="btn-secondary" @click="showLogin = false">Cancelar</button>
-          <button type="submit" class="btn-primary">Entrar</button>
+          <button type="submit" class="btn-primary" :disabled="submitting">
+            {{ submitting ? 'Entrando…' : 'Entrar' }}
+          </button>
         </div>
       </form>
     </UiModal>

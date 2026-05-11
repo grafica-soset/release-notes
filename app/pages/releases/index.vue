@@ -1,26 +1,42 @@
 <script setup lang="ts">
 import { useReleasesStore } from '~/stores/releases'
+import { useIssuesStore } from '~/stores/issues'
 import { useSessionStore } from '~/stores/session'
 
 useHead({ title: 'Releases' })
 
-const store = useReleasesStore()
+const releases = useReleasesStore()
+const issues = useIssuesStore()
 const session = useSessionStore()
+
+// Carrega releases + lista de issues em paralelo (issues alimentam o seletor
+// do ReleaseForm).
+await Promise.all([releases.fetchAll(), issues.fetchAll()])
 
 const showForm = ref(false)
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
 
-await store.fetchAll()
+function openCreate() {
+  submitError.value = null
+  showForm.value = true
+}
 
-async function handleSubmit(payload: { version: string; description: string; prUrl: string }) {
+async function handleSubmit(payload: {
+  version: string
+  description: string
+  prUrl: string
+  issueIds: string[]
+}) {
   submitting.value = true
   submitError.value = null
   try {
-    await store.create(payload)
+    await releases.create(payload)
+    // Atualiza store de issues — algumas viraram "vinculadas".
+    await issues.fetchAll()
     showForm.value = false
   } catch (e: any) {
-    submitError.value = e?.statusMessage || 'Erro ao salvar.'
+    submitError.value = e?.statusMessage || e?.data?.message || 'Erro ao salvar.'
   } finally {
     submitting.value = false
   }
@@ -37,21 +53,18 @@ async function handleSubmit(payload: { version: string; description: string; prU
       <button
         v-if="session.isAdmin"
         class="btn-primary self-start sm:self-auto"
-        @click="showForm = true"
+        @click="openCreate"
       >
         + Nova release
       </button>
     </header>
 
-    <p v-if="store.loading" class="text-sm text-slate-500">Carregando releases…</p>
-    <p v-else-if="store.error" class="text-sm text-red-600">{{ store.error }}</p>
+    <p v-if="releases.loading" class="text-sm text-slate-500">Carregando releases…</p>
+    <p v-else-if="releases.error" class="text-sm text-red-600">{{ releases.error }}</p>
 
-    <div
-      v-else-if="store.releases.length"
-      class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-    >
-      <ReleaseCard
-        v-for="release in store.releases"
+    <div v-else-if="releases.releases.length" class="card divide-y divide-slate-100">
+      <ReleaseListItem
+        v-for="release in releases.releases"
         :key="release._id"
         :release="release"
       />
@@ -67,6 +80,7 @@ async function handleSubmit(payload: { version: string; description: string; prU
     <UiModal v-model="showForm" title="Nova release">
       <p v-if="submitError" class="mb-3 text-sm text-red-600">{{ submitError }}</p>
       <ReleaseForm
+        :available-issues="issues.issues"
         :submitting="submitting"
         @submit="handleSubmit"
         @cancel="showForm = false"

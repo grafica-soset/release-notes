@@ -4,6 +4,7 @@ import type { Comment } from '~/types'
 defineProps<{
   comment: Comment
   showConvertAction?: boolean
+  canRemove?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -52,7 +53,7 @@ function initials(name: string) {
             Abrir Issue
           </button>
           <button
-            v-if="showConvertAction"
+            v-if="canRemove"
             class="btn-ghost !py-1 !px-2 text-xs text-red-600 hover:bg-red-50"
             title="Remover comentário"
             @click="emit('remove', comment)"

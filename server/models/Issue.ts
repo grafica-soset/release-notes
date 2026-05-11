@@ -16,6 +16,7 @@ const IssueSchema = new Schema(
     commentId: { type: Schema.Types.ObjectId, ref: 'Comment', default: null, index: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
+    prUrl: { type: String, default: '', trim: true },
     status: {
       type: String,
       enum: ISSUE_STATUSES,

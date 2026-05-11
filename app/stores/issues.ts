@@ -8,7 +8,7 @@ interface State {
 }
 
 /**
- * Store de gerenciamento das Issues (criação, listagem e mudança de status).
+ * Store de gerenciamento das Issues (criação, listagem e edição).
  */
 export const useIssuesStore = defineStore('issues', {
   state: (): State => ({
@@ -18,7 +18,8 @@ export const useIssuesStore = defineStore('issues', {
   }),
 
   getters: {
-    byStatus: (s) => (status: IssueStatus) => s.issues.filter((i) => i.status === status)
+    byStatus: (s) => (status: IssueStatus) => s.issues.filter((i) => i.status === status),
+    byId: (s) => (id: string) => s.issues.find((i) => i._id === id) || null
   },
 
   actions: {
@@ -28,7 +29,7 @@ export const useIssuesStore = defineStore('issues', {
       try {
         this.issues = await $fetch<Issue[]>('/api/issues', { params })
       } catch (e: any) {
-        this.error = e?.statusMessage || 'Erro ao carregar issues.'
+        this.error = e?.statusMessage || e?.data?.message || 'Erro ao carregar issues.'
       } finally {
         this.loading = false
       }
@@ -37,6 +38,7 @@ export const useIssuesStore = defineStore('issues', {
     async create(payload: {
       title: string
       description?: string
+      prUrl?: string
       status?: IssueStatus
       releaseId?: string | null
       commentId?: string | null
@@ -49,14 +51,29 @@ export const useIssuesStore = defineStore('issues', {
       return created
     },
 
-    async updateStatus(id: string, status: IssueStatus) {
+    /** Atualização parcial — usada tanto por troca de status quanto edição completa. */
+    async update(
+      id: string,
+      payload: {
+        title?: string
+        description?: string
+        prUrl?: string
+        status?: IssueStatus
+        releaseId?: string | null
+      }
+    ) {
       const updated = await $fetch<Issue>(`/api/issues/${id}`, {
         method: 'PATCH',
-        body: { status }
+        body: payload
       })
       const idx = this.issues.findIndex((i) => i._id === id)
       if (idx >= 0) this.issues[idx] = updated
       return updated
+    },
+
+    /** Atalho usado pela board (drag-like select). */
+    updateStatus(id: string, status: IssueStatus) {
+      return this.update(id, { status })
     },
 
     async remove(id: string) {

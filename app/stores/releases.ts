@@ -1,23 +1,22 @@
 import { defineStore } from 'pinia'
-import type { Release, Comment } from '~/types'
+import type { Release, ReleaseDetail } from '~/types'
 
 interface State {
   releases: Release[]
-  current: Release | null
-  comments: Comment[]
+  current: ReleaseDetail | null
   loading: boolean
   error: string | null
 }
 
 /**
- * Store responsável por listar releases e gerenciar a tela de detalhe
- * (release atual + comentários).
+ * Store responsável por listar releases e gerenciar o detalhe (release atual
+ * com issues populadas). A timeline de comentários é gerenciada pelo
+ * componente `CommentTimeline`.
  */
 export const useReleasesStore = defineStore('releases', {
   state: (): State => ({
     releases: [],
     current: null,
-    comments: [],
     loading: false,
     error: null
   }),
@@ -29,13 +28,18 @@ export const useReleasesStore = defineStore('releases', {
       try {
         this.releases = await $fetch<Release[]>('/api/releases')
       } catch (e: any) {
-        this.error = e?.statusMessage || 'Erro ao carregar releases.'
+        this.error = e?.statusMessage || e?.data?.message || 'Erro ao carregar releases.'
       } finally {
         this.loading = false
       }
     },
 
-    async create(payload: { version: string; description?: string; prUrl?: string }) {
+    async create(payload: {
+      version: string
+      description?: string
+      prUrl?: string
+      issueIds?: string[]
+    }) {
       const created = await $fetch<Release>('/api/releases', {
         method: 'POST',
         body: payload
@@ -44,35 +48,37 @@ export const useReleasesStore = defineStore('releases', {
       return created
     },
 
+    async update(
+      id: string,
+      payload: {
+        version?: string
+        description?: string
+        prUrl?: string
+        issueIds?: string[]
+      }
+    ) {
+      const updated = await $fetch<Release>(`/api/releases/${id}`, {
+        method: 'PUT',
+        body: payload
+      })
+      const idx = this.releases.findIndex((r) => r._id === id)
+      if (idx >= 0) this.releases[idx] = updated
+      if (this.current?._id === id) {
+        await this.fetchOne(id)
+      }
+      return updated
+    },
+
     async fetchOne(id: string) {
       this.loading = true
       this.error = null
       try {
-        const [release, comments] = await Promise.all([
-          $fetch<Release>(`/api/releases/${id}`),
-          $fetch<Comment[]>('/api/comments', { params: { releaseId: id } })
-        ])
-        this.current = release
-        this.comments = comments
+        this.current = await $fetch<ReleaseDetail>(`/api/releases/${id}`)
       } catch (e: any) {
-        this.error = e?.statusMessage || 'Erro ao carregar release.'
+        this.error = e?.statusMessage || e?.data?.message || 'Erro ao carregar release.'
       } finally {
         this.loading = false
       }
-    },
-
-    async addComment(payload: { releaseId: string; authorName: string; content: string }) {
-      const created = await $fetch<Comment>('/api/comments', {
-        method: 'POST',
-        body: payload
-      })
-      this.comments.push(created)
-      return created
-    },
-
-    async removeComment(id: string) {
-      await $fetch(`/api/comments/${id}`, { method: 'DELETE' })
-      this.comments = this.comments.filter((c) => c._id !== id)
     }
   }
 })

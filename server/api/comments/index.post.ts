@@ -1,16 +1,31 @@
 import Comment from '../../models/Comment'
 import Release from '../../models/Release'
+import Issue from '../../models/Issue'
 import { assertObjectId } from '../../utils/validate'
 
 /**
  * POST /api/comments
- * Cria um comentário associado a uma release.
- * Body: { releaseId, authorName, content }
+ * Body: { authorName, content, releaseId?, issueId? }
+ *
+ * Exatamente um entre `releaseId` ou `issueId` deve estar presente.
  */
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ releaseId?: string; authorName?: string; content?: string }>(event)
+  const body = await readBody<{
+    releaseId?: string
+    issueId?: string
+    authorName?: string
+    content?: string
+  }>(event)
 
-  assertObjectId(body.releaseId, 'releaseId')
+  const hasRelease = !!body?.releaseId
+  const hasIssue = !!body?.issueId
+
+  if (hasRelease === hasIssue) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Informe exatamente um entre "releaseId" e "issueId".'
+    })
+  }
 
   if (!body?.authorName?.trim() || !body?.content?.trim()) {
     throw createError({
@@ -19,14 +34,23 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Verifica se a release existe (integridade referencial leve).
-  const release = await Release.findById(body.releaseId).select('_id').lean()
-  if (!release) {
-    throw createError({ statusCode: 404, statusMessage: 'Release não encontrada.' })
+  if (hasRelease) {
+    assertObjectId(body.releaseId, 'releaseId')
+    const release = await Release.findById(body.releaseId).select('_id').lean()
+    if (!release) {
+      throw createError({ statusCode: 404, statusMessage: 'Release não encontrada.' })
+    }
+  } else {
+    assertObjectId(body.issueId, 'issueId')
+    const issue = await Issue.findById(body.issueId).select('_id').lean()
+    if (!issue) {
+      throw createError({ statusCode: 404, statusMessage: 'Issue não encontrada.' })
+    }
   }
 
   const comment = await Comment.create({
-    releaseId: body.releaseId,
+    releaseId: hasRelease ? body.releaseId : null,
+    issueId: hasIssue ? body.issueId : null,
     authorName: body.authorName.trim(),
     content: body.content.trim()
   })

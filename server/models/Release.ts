@@ -11,7 +11,10 @@ const ReleaseSchema = new Schema(
   {
     version: { type: String, required: true, trim: true },
     description: { type: String, default: '' }, // markdown / texto rico
-    prUrl: { type: String, default: '', trim: true }
+    prUrl: { type: String, default: '', trim: true },
+    // Issues incluídas nesta release (vínculo n:n via array de refs).
+    // Em paralelo, `Issue.releaseId` é populado pela rota (single-source).
+    issueIds: [{ type: Schema.Types.ObjectId, ref: 'Issue', default: [] }]
   },
   { timestamps: true }
 )

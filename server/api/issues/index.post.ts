@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
     title?: string
     description?: string
     status?: IssueStatus
+    prUrl?: string
     releaseId?: string | null
     commentId?: string | null
   }>(event)
@@ -31,6 +32,7 @@ export default defineEventHandler(async (event) => {
   const issue = await Issue.create({
     title: body.title.trim(),
     description: body.description ?? '',
+    prUrl: body.prUrl?.trim() ?? '',
     status: body.status ?? 'BACKLOG',
     releaseId,
     commentId

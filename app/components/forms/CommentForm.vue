@@ -1,71 +1,39 @@
 <script setup lang="ts">
 /**
- * Formulário reaproveitável para criação de comentário.
- * `authorName` é pré-preenchido com a sessão atual mas pode ser editado.
+ * Formulário de comentário — apenas o conteúdo, o autor vem da sessão.
  */
-const props = defineProps<{
-  defaultAuthor?: string
-  submitting?: boolean
-}>()
+defineProps<{ submitting?: boolean }>()
 
 const emit = defineEmits<{
-  submit: [payload: { authorName: string; content: string }]
+  submit: [payload: { content: string }]
 }>()
 
-const form = reactive({
-  authorName: props.defaultAuthor ?? '',
-  content: ''
-})
-
-const errors = reactive<Record<string, string>>({})
-
-watch(
-  () => props.defaultAuthor,
-  (v) => {
-    if (v && !form.authorName) form.authorName = v
-  }
-)
-
-function validate() {
-  errors.authorName = form.authorName.trim() ? '' : 'Informe seu nome.'
-  errors.content = form.content.trim() ? '' : 'Escreva um comentário.'
-  return !errors.authorName && !errors.content
-}
+const content = ref('')
+const error = ref('')
 
 function onSubmit() {
-  if (!validate()) return
-  emit('submit', {
-    authorName: form.authorName.trim(),
-    content: form.content.trim()
-  })
-  form.content = ''
+  if (!content.value.trim()) {
+    error.value = 'Escreva um comentário.'
+    return
+  }
+  error.value = ''
+  emit('submit', { content: content.value.trim() })
+  content.value = ''
 }
 </script>
 
 <template>
   <form class="space-y-3" @submit.prevent="onSubmit">
-    <div class="grid sm:grid-cols-3 gap-3">
-      <div class="sm:col-span-1">
-        <label class="label" for="comment-author">Seu nome</label>
-        <input
-          id="comment-author"
-          v-model="form.authorName"
-          class="input"
-          placeholder="João Cliente"
-        />
-        <p v-if="errors.authorName" class="mt-1 text-xs text-red-600">{{ errors.authorName }}</p>
-      </div>
-      <div class="sm:col-span-2">
-        <label class="label" for="comment-content">Comentário</label>
-        <textarea
-          id="comment-content"
-          v-model="form.content"
-          rows="3"
-          class="input"
-          placeholder="Achei que o botão X poderia..."
-        />
-        <p v-if="errors.content" class="mt-1 text-xs text-red-600">{{ errors.content }}</p>
-      </div>
+    <div>
+      <label class="label" for="comment-content">Comentário</label>
+      <textarea
+        id="comment-content"
+        v-model="content"
+        rows="3"
+        class="input"
+        placeholder="Achei que o botão X poderia..."
+      />
+      <p v-if="error" class="mt-1 text-xs text-red-600">{{ error }}</p>
     </div>
 
     <div class="flex justify-end">

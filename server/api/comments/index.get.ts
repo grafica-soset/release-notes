@@ -2,14 +2,35 @@ import Comment from '../../models/Comment'
 import { assertObjectId } from '../../utils/validate'
 
 /**
- * GET /api/comments?releaseId=...
- * Lista os comentários (mais antigos primeiro, formando uma timeline).
- * O `releaseId` é obrigatório para evitar retornar a base inteira.
+ * GET /api/comments?releaseId=...  → comentários da release
+ * GET /api/comments?issueId=...    → comentários da issue
+ *
+ * Exatamente um dos dois precisa ser informado (evita dump da coleção).
  */
 export default defineEventHandler(async (event) => {
-  const { releaseId } = getQuery<{ releaseId?: string }>(event)
-  assertObjectId(releaseId, 'releaseId')
+  const { releaseId, issueId } = getQuery<{ releaseId?: string; issueId?: string }>(event)
 
-  const comments = await Comment.find({ releaseId }).sort({ createdAt: 1 }).lean()
-  return comments
+  if (!releaseId && !issueId) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Informe "releaseId" ou "issueId".'
+    })
+  }
+  if (releaseId && issueId) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Use apenas um filtro: "releaseId" ou "issueId".'
+    })
+  }
+
+  const filter: Record<string, unknown> = {}
+  if (releaseId) {
+    assertObjectId(releaseId, 'releaseId')
+    filter.releaseId = releaseId
+  } else {
+    assertObjectId(issueId, 'issueId')
+    filter.issueId = issueId
+  }
+
+  return await Comment.find(filter).sort({ createdAt: 1 }).lean()
 })
