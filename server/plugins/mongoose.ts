@@ -15,6 +15,10 @@ import { ensureDb, recordError, recordConnected, maskUri } from '../utils/db'
  */
 export default defineNitroPlugin(async () => {
   mongoose.set('strictQuery', true)
+  // Em serverless a conexão pode cair entre invocações. Sem buffering, qualquer
+  // query feita com `readyState !== 1` falha imediatamente com mensagem clara,
+  // em vez de pendurar 10s e estourar como "unhandled".
+  mongoose.set('bufferCommands', false)
 
   // Listeners de diagnóstico — aparecem nos logs do Netlify (Functions → Logs).
   mongoose.connection.on('connected', () => {
