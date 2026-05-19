@@ -30,6 +30,16 @@ export interface Comment {
 
 export type IssueStatus = 'BACKLOG' | 'IN_PROGRESS' | 'CLOSED'
 
+export type IssueEventType = 'APPROVED' | 'ARCHIVED'
+
+export interface IssueEvent {
+  type: IssueEventType
+  userId: string | null
+  userName: string
+  userLogin: string
+  at: string
+}
+
 export interface Issue {
   _id: string
   releaseId: string | null
@@ -38,6 +48,9 @@ export interface Issue {
   description: string
   prUrl: string
   status: IssueStatus
+  archived: boolean
+  archivedAt: string | null
+  eventLog: IssueEvent[]
   createdAt: string
   updatedAt: string
 }

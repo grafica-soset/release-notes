@@ -86,6 +86,51 @@ async function remove(id: string) {
   await store.remove(id)
 }
 
+const actor = computed(() => ({
+  userId: session.userId,
+  userName: session.name,
+  userLogin: session.login
+}))
+
+async function approve(issue: Issue) {
+  if (!confirm(`Aprovar e arquivar "${issue.title}"?`)) return
+  await store.archive(issue._id, 'APPROVED', actor.value)
+}
+
+async function archive(issue: Issue) {
+  if (!confirm(`Arquivar "${issue.title}"?`)) return
+  await store.archive(issue._id, 'ARCHIVED', actor.value)
+}
+
+// --- Arquivadas ---
+const showArchived = ref(false)
+const loadingArchived = ref(false)
+
+async function toggleArchived() {
+  showArchived.value = !showArchived.value
+  if (showArchived.value && !store.archivedLoaded) {
+    loadingArchived.value = true
+    try {
+      await store.fetchArchived()
+    } finally {
+      loadingArchived.value = false
+    }
+  }
+}
+
+const eventTypeLabel: Record<string, string> = {
+  APPROVED: 'Aprovada pelo cliente',
+  ARCHIVED: 'Arquivada'
+}
+const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+
 const columns: { status: IssueStatus; label: string; color: string }[] = [
   { status: 'BACKLOG', label: 'Backlog', color: 'bg-slate-200 text-slate-700' },
   { status: 'IN_PROGRESS', label: 'Em andamento', color: 'bg-amber-100 text-amber-700' },
@@ -105,6 +150,9 @@ const modalTitle = computed(() => {
 
 const formInitial = computed(() => editing.value ?? draft.value ?? undefined)
 const formKey = computed(() => editing.value?._id ?? (mode.value === 'create-from-comment' ? 'from-comment' : 'new'))
+
+// Cliente logado pode aprovar (e assim arquivar) issues ativas.
+const canApprove = computed(() => session.isLogged && !session.isAdmin)
 </script>
 
 <template>
@@ -141,9 +189,12 @@ const formKey = computed(() => editing.value?._id ?? (mode.value === 'create-fro
             :key="issue._id"
             :issue="issue"
             :can-manage="session.isAdmin"
+            :can-approve="canApprove"
             @update-status="updateStatus"
             @edit="openIssue"
             @remove="remove"
+            @approve="approve"
+            @archive="archive"
           />
           <p
             v-if="!columnIssues(col.status).length"
@@ -151,6 +202,41 @@ const formKey = computed(() => editing.value?._id ?? (mode.value === 'create-fro
           >
             Sem issues
           </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arquivadas -->
+    <div v-if="!store.loading && !store.error" class="mt-8 border-t border-slate-200 pt-6">
+      <button
+        type="button"
+        class="text-sm font-medium text-slate-700 hover:text-brand-600 flex items-center gap-2"
+        @click="toggleArchived"
+      >
+        <span>{{ showArchived ? '▾' : '▸' }}</span>
+        Arquivadas
+        <span v-if="store.archivedLoaded" class="text-xs text-slate-400">
+          ({{ store.archivedIssues.length }})
+        </span>
+      </button>
+
+      <div v-if="showArchived" class="mt-4">
+        <p v-if="loadingArchived" class="text-sm text-slate-500">Carregando…</p>
+        <p
+          v-else-if="!store.archivedIssues.length"
+          class="text-xs text-slate-400 italic px-2 py-4 text-center border border-dashed border-slate-200 rounded-md"
+        >
+          Nenhuma issue arquivada
+        </p>
+        <div v-else class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <IssueCard
+            v-for="issue in store.archivedIssues"
+            :key="issue._id"
+            :issue="issue"
+            :can-manage="session.isAdmin"
+            @edit="openIssue"
+            @remove="remove"
+          />
         </div>
       </div>
     </div>
@@ -165,6 +251,31 @@ const formKey = computed(() => editing.value?._id ?? (mode.value === 'create-fro
         @submit="handleSubmit"
         @cancel="showForm = false"
       />
+
+      <!-- Histórico de aprovação/arquivamento. -->
+      <div
+        v-if="editing?.eventLog?.length"
+        class="border-t border-slate-200 pt-5 mt-6"
+      >
+        <h3 class="text-sm font-semibold text-slate-700 mb-2">Histórico</h3>
+        <ul class="space-y-1.5">
+          <li
+            v-for="(ev, i) in editing.eventLog"
+            :key="i"
+            class="text-xs text-slate-600 flex flex-wrap items-center gap-x-2"
+          >
+            <span
+              class="badge text-[10px]"
+              :class="ev.type === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'"
+            >
+              {{ eventTypeLabel[ev.type] ?? ev.type }}
+            </span>
+            <span>{{ ev.userName || ev.userLogin || 'usuário' }}</span>
+            <span class="text-slate-400">·</span>
+            <time class="text-slate-400">{{ formatDateTime(ev.at) }}</time>
+          </li>
+        </ul>
+      </div>
 
       <!-- Timeline só faz sentido em edit/view (issue persistida). -->
       <div v-if="editing?._id" class="border-t border-slate-200 pt-5 mt-6">

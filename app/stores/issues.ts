@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
-import type { Issue, IssueStatus } from '~/types'
+import type { Issue, IssueEventType, IssueStatus } from '~/types'
 
 interface State {
   issues: Issue[]
+  archivedIssues: Issue[]
+  archivedLoaded: boolean
   loading: boolean
   error: string | null
 }
@@ -13,6 +15,8 @@ interface State {
 export const useIssuesStore = defineStore('issues', {
   state: (): State => ({
     issues: [],
+    archivedIssues: [],
+    archivedLoaded: false,
     loading: false,
     error: null
   }),
@@ -27,12 +31,20 @@ export const useIssuesStore = defineStore('issues', {
       this.loading = true
       this.error = null
       try {
+        // API retorna apenas issues ativas (não arquivadas) por padrão.
         this.issues = await $fetch<Issue[]>('/api/issues', { params })
       } catch (e: any) {
         this.error = e?.statusMessage || e?.data?.message || 'Erro ao carregar issues.'
       } finally {
         this.loading = false
       }
+    },
+
+    async fetchArchived() {
+      this.archivedIssues = await $fetch<Issue[]>('/api/issues', {
+        params: { archived: 'true' }
+      })
+      this.archivedLoaded = true
     },
 
     async create(payload: {
@@ -76,9 +88,34 @@ export const useIssuesStore = defineStore('issues', {
       return this.update(id, { status })
     },
 
+    /**
+     * Arquiva uma issue. `type` distingue aprovação do cliente (`APPROVED`)
+     * de arquivamento manual do admin (`ARCHIVED`). O usuário responsável é
+     * enviado no body (sem auth real — ver CLAUDE.md).
+     */
+    async archive(
+      id: string,
+      type: IssueEventType,
+      actor: { userId?: string; userName?: string; userLogin?: string } = {}
+    ) {
+      const updated = await $fetch<Issue>(`/api/issues/${id}/archive`, {
+        method: 'POST',
+        body: { type, ...actor }
+      })
+      // Sai da board ativa e entra na lista de arquivadas (se já carregada).
+      this.issues = this.issues.filter((i) => i._id !== id)
+      if (this.archivedLoaded) {
+        const idx = this.archivedIssues.findIndex((i) => i._id === id)
+        if (idx >= 0) this.archivedIssues[idx] = updated
+        else this.archivedIssues.unshift(updated)
+      }
+      return updated
+    },
+
     async remove(id: string) {
       await $fetch(`/api/issues/${id}`, { method: 'DELETE' })
       this.issues = this.issues.filter((i) => i._id !== id)
+      this.archivedIssues = this.archivedIssues.filter((i) => i._id !== id)
     }
   }
 })

@@ -47,3 +47,5 @@ Nuxt 4 full-stack: frontend Vue 3 em `app/` e backend Nitro em `server/` (raiz d
 - Ao deletar uma Release, `[id].delete.ts` também apaga os Comments atrelados (cascade manual). Issues vinculadas **não** são apagadas — o `releaseId` continua referenciando um doc que não existe mais.
 - Em `server/api/comments/index.get.ts`, `releaseId` na query é **obrigatório** para evitar dump da coleção inteira.
 - Ao adicionar uma store nova que precise persistir, ela só funciona no client (o plugin é `.client.ts`).
+
+
