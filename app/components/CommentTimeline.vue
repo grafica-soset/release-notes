@@ -62,7 +62,7 @@ async function add(payload: { content: string }) {
   try {
     const created = await $fetch<Comment>('/api/comments', {
       method: 'POST',
-      body: { ...payload, authorName: session.name, ...fetchParams.value }
+      body: { ...payload, authorName: session.name, authorRole: session.role, ...fetchParams.value }
     })
     comments.value.push(created)
   } catch (e: any) {

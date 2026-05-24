@@ -21,6 +21,21 @@ const IssueEventSchema = new Schema(
 )
 
 /**
+ * Detalhes de bug report — preenchido quando a issue chega pela API de
+ * integração (`POST /api/public/issues`). Sua presença marca a issue como
+ * um bug reportado de fora; issues internas têm `bugReport = null`.
+ */
+const BugReportSchema = new Schema(
+  {
+    url: { type: String, default: '', trim: true }, // tela/rota onde o erro ocorreu
+    stepsToReproduce: { type: String, default: '' },
+    reporterLogin: { type: String, default: '', trim: true, lowercase: true },
+    reporterName: { type: String, default: '' }
+  },
+  { _id: false }
+)
+
+/**
  * Schema da entidade `Issue` (tarefa/problema gerado a partir de um comentário
  * ou criado manualmente pelo admin).
  */
@@ -39,7 +54,8 @@ const IssueSchema = new Schema(
     },
     archived: { type: Boolean, default: false, index: true },
     archivedAt: { type: Date, default: null },
-    eventLog: { type: [IssueEventSchema], default: [] }
+    eventLog: { type: [IssueEventSchema], default: [] },
+    bugReport: { type: BugReportSchema, default: null }
   },
   { timestamps: true }
 )

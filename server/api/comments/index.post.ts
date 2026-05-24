@@ -1,13 +1,14 @@
-import Comment from '../../models/Comment'
+import Comment, { COMMENT_AUTHOR_ROLES, type CommentAuthorRole } from '../../models/Comment'
 import Release from '../../models/Release'
 import Issue from '../../models/Issue'
 import { assertObjectId } from '../../utils/validate'
 
 /**
  * POST /api/comments
- * Body: { authorName, content, releaseId?, issueId? }
+ * Body: { authorName, content, releaseId?, issueId?, authorRole? }
  *
  * Exatamente um entre `releaseId` ou `issueId` deve estar presente.
+ * `authorRole` (default CLIENT) alimenta a fila de notificações do admin.
  */
 export default defineEventHandler(async (event) => {
   const body = await readBody<{
@@ -15,6 +16,7 @@ export default defineEventHandler(async (event) => {
     issueId?: string
     authorName?: string
     content?: string
+    authorRole?: CommentAuthorRole
   }>(event)
 
   const hasRelease = !!body?.releaseId
@@ -48,10 +50,15 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const authorRole: CommentAuthorRole = COMMENT_AUTHOR_ROLES.includes(body.authorRole as CommentAuthorRole)
+    ? (body.authorRole as CommentAuthorRole)
+    : 'CLIENT'
+
   const comment = await Comment.create({
     releaseId: hasRelease ? body.releaseId : null,
     issueId: hasIssue ? body.issueId : null,
     authorName: body.authorName.trim(),
+    authorRole,
     content: body.content.trim()
   })
 

@@ -116,6 +116,33 @@ function onSubmit() {
         </select>
       </div>
 
+      <!-- Bug report (issues vindas da API de integração) — só leitura. -->
+      <div
+        v-if="initial?.bugReport"
+        class="rounded-md border border-amber-200 bg-amber-50 p-3 space-y-2 text-sm"
+      >
+        <div class="flex items-center gap-2">
+          <span class="badge bg-amber-100 text-amber-800">🐞 Bug report</span>
+          <span v-if="initial.bugReport.reporterName || initial.bugReport.reporterLogin" class="text-xs text-slate-600">
+            por {{ initial.bugReport.reporterName || initial.bugReport.reporterLogin }}
+            <span v-if="initial.bugReport.reporterLogin" class="text-slate-400">(@{{ initial.bugReport.reporterLogin }})</span>
+          </span>
+        </div>
+        <p v-if="initial.bugReport.url" class="text-xs">
+          <span class="text-slate-500">URL com erro:</span>
+          <a
+            :href="initial.bugReport.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-brand-600 hover:underline break-all"
+          >{{ initial.bugReport.url }} ↗</a>
+        </p>
+        <div v-if="initial.bugReport.stepsToReproduce" class="text-xs">
+          <p class="text-slate-500 mb-0.5">Passos para reproduzir:</p>
+          <p class="text-slate-700 whitespace-pre-wrap">{{ initial.bugReport.stepsToReproduce }}</p>
+        </div>
+      </div>
+
       <!-- Rastreabilidade — só leitura. -->
       <div v-if="form.releaseId || form.commentId" class="text-xs text-slate-500 space-y-1">
         <p v-if="form.releaseId">Vinculada à Release: <code>{{ form.releaseId }}</code></p>

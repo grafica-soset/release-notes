@@ -6,10 +6,19 @@
  *    <ReleaseForm @submit="..." @cancel="open = false" />
  *  </UiModal>
  */
-const props = defineProps<{
-  modelValue: boolean
-  title?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    title?: string
+    /**
+     * Quando true (padrão), o modal NÃO fecha ao clicar fora — evita perder
+     * o preenchimento de um formulário por um clique acidental. Fechamento
+     * continua disponível pelo botão ✕ e pelos botões Cancelar/Salvar.
+     */
+    persistent?: boolean
+  }>(),
+  { persistent: true }
+)
 
 const emit = defineEmits<{
   'update:modelValue': [v: boolean]
@@ -19,10 +28,14 @@ function close() {
   emit('update:modelValue', false)
 }
 
-// Fecha com tecla ESC
+function onBackdropClick() {
+  if (!props.persistent) close()
+}
+
+// ESC fecha apenas modais não-persistentes.
 onMounted(() => {
   const handler = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && props.modelValue) close()
+    if (e.key === 'Escape' && props.modelValue && !props.persistent) close()
   }
   window.addEventListener('keydown', handler)
   onBeforeUnmount(() => window.removeEventListener('keydown', handler))
@@ -35,7 +48,7 @@ onMounted(() => {
       <div
         v-if="modelValue"
         class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
-        @click.self="close"
+        @click.self="onBackdropClick"
       >
         <div
           class="card w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-lg"

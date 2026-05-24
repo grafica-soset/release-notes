@@ -65,6 +65,11 @@ const lastEventLabel = computed(() => {
         class="font-medium text-slate-800 text-sm text-left hover:underline"
         @click="emit('edit', issue)"
       >
+        <span
+          v-if="issue.bugReport"
+          class="badge bg-amber-100 text-amber-800 text-[10px] mr-1 align-middle"
+          title="Bug reportado via integração"
+        >🐞 Bug</span>
         {{ issue.title }}
       </button>
       <time class="text-xs text-slate-400 shrink-0">{{ formatDate(issue.createdAt) }}</time>

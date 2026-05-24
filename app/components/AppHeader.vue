@@ -1,13 +1,51 @@
 <script setup lang="ts">
 import { useSessionStore } from '~/stores/session'
+import { useNotificationsStore } from '~/stores/notifications'
+import type { CommentNotification } from '~/types'
 
 const session = useSessionStore()
+const notifications = useNotificationsStore()
 const route = useRoute()
 
 const showLogin = ref(false)
 const draftLogin = ref('')
 const loginError = ref<string | null>(null)
 const submitting = ref(false)
+
+// --- Sino de notificações (admin) ---
+const showBell = ref(false)
+
+// Carrega a fila quando o admin está logado; recarrega ao trocar de login.
+watch(
+  () => session.isAdmin,
+  (isAdmin) => {
+    if (isAdmin) notifications.fetch()
+    else notifications.$reset()
+  },
+  { immediate: true }
+)
+
+// Fecha o dropdown ao navegar.
+watch(
+  () => route.path,
+  () => {
+    showBell.value = false
+  }
+)
+
+const recentNotifications = computed(() => notifications.items.slice(0, 6))
+
+const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+
+async function archiveFromBell(n: CommentNotification) {
+  await notifications.archive(n._id)
+}
 
 function openLogin() {
   draftLogin.value = session.login
@@ -70,6 +108,75 @@ function isActive(to: string) {
       </nav>
 
       <div class="flex items-center gap-2">
+        <!-- Sino de notificações (admin) -->
+        <div v-if="session.isAdmin" class="relative">
+          <button
+            class="relative p-2 rounded-md text-slate-600 hover:bg-slate-100 transition-colors"
+            title="Notificações"
+            @click="showBell = !showBell"
+          >
+            <span class="text-lg leading-none">🔔</span>
+            <span
+              v-if="notifications.count"
+              class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center"
+            >
+              {{ notifications.count > 99 ? '99+' : notifications.count }}
+            </span>
+          </button>
+
+          <!-- Backdrop para fechar ao clicar fora -->
+          <div v-if="showBell" class="fixed inset-0 z-30" @click="showBell = false" />
+
+          <div
+            v-if="showBell"
+            class="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-slate-200 z-40 overflow-hidden"
+          >
+            <header class="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
+              <span class="text-sm font-semibold text-slate-800">Notificações</span>
+              <span class="text-xs text-slate-400">{{ notifications.count }} pendente(s)</span>
+            </header>
+
+            <div class="max-h-80 overflow-y-auto">
+              <p
+                v-if="!recentNotifications.length"
+                class="px-4 py-6 text-center text-sm text-slate-500"
+              >
+                Nenhuma notificação pendente.
+              </p>
+              <ul v-else class="divide-y divide-slate-100">
+                <li
+                  v-for="n in recentNotifications"
+                  :key="n._id"
+                  class="px-4 py-3 hover:bg-slate-50"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <span class="text-sm font-medium text-slate-800">{{ n.authorName }}</span>
+                    <time class="text-[11px] text-slate-400 shrink-0">{{ formatDateTime(n.createdAt) }}</time>
+                  </div>
+                  <p class="text-xs text-slate-500 mb-1">
+                    {{ n.issueTitle ? `Issue · ${n.issueTitle}` : n.releaseVersion ? `Release ${n.releaseVersion}` : 'Comentário' }}
+                  </p>
+                  <p class="text-sm text-slate-700 line-clamp-2">{{ n.content }}</p>
+                  <button
+                    class="mt-1.5 text-xs text-slate-500 hover:text-brand-600"
+                    @click="archiveFromBell(n)"
+                  >
+                    Arquivar
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <NuxtLink
+              to="/notifications"
+              class="block px-4 py-2.5 text-center text-sm font-medium text-brand-600 hover:bg-slate-50 border-t border-slate-100"
+              @click="showBell = false"
+            >
+              Ver todas →
+            </NuxtLink>
+          </div>
+        </div>
+
         <template v-if="session.isLogged">
           <span class="hidden sm:flex items-center gap-2 text-sm">
             <span class="text-slate-600">{{ session.name }}</span>

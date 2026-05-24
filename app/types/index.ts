@@ -23,9 +23,22 @@ export interface Comment {
   releaseId: string | null
   issueId: string | null
   authorName: string
+  authorRole: UserRole
   content: string
+  archived: boolean
+  archivedAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+/** Comentário enriquecido para a fila de notificações do admin. */
+export interface CommentNotification extends Comment {
+  /** Versão da release de origem (direta ou via issue-pai). */
+  releaseVersion: string | null
+  /** Título da issue, quando o comentário foi feito na timeline de uma issue. */
+  issueTitle: string | null
+  /** Release à qual uma nova issue criada daqui deve ser vinculada. */
+  targetReleaseId: string | null
 }
 
 export type IssueStatus = 'BACKLOG' | 'IN_PROGRESS' | 'CLOSED'
@@ -40,6 +53,14 @@ export interface IssueEvent {
   at: string
 }
 
+/** Detalhes de bug report (issues vindas da API de integração). */
+export interface BugReport {
+  url: string
+  stepsToReproduce: string
+  reporterLogin: string
+  reporterName: string
+}
+
 export interface Issue {
   _id: string
   releaseId: string | null
@@ -51,6 +72,7 @@ export interface Issue {
   archived: boolean
   archivedAt: string | null
   eventLog: IssueEvent[]
+  bugReport: BugReport | null
   createdAt: string
   updatedAt: string
 }
