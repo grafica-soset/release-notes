@@ -1,0 +1,56 @@
+# Build + push da imagem para o Artifact Registry e deploy no Cloud Run.
+#
+# Uso manual:
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_REGION=us-central1,_REPOSITORY=release-notes,_SERVICE=release-notes
+#
+# Ou conecte este arquivo a um trigger do Cloud Build (push na branch main).
+# Pré-requisitos: ver docs/deploy-cloud-run.md.
+
+substitutions:
+  _REGION: us-central1
+  _REPOSITORY: release-notes
+  _SERVICE: release-notes
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${BUILD_ID}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:latest'
+
+steps:
+  # 1) Build da imagem (tag imutável por build + latest).
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${BUILD_ID}'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:latest'
+      - '.'
+
+  # 2) Push das duas tags.
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - '--all-tags'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}'
+
+  # 3) Deploy no Cloud Run.
+  #    MONGODB_URI e INTEGRATION_API_KEY vêm do Secret Manager (ver docs).
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - '${_SERVICE}'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${BUILD_ID}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--port=8080'
+      - '--allow-unauthenticated'
+      - '--set-secrets=MONGODB_URI=MONGODB_URI:latest,INTEGRATION_API_KEY=INTEGRATION_API_KEY:latest'

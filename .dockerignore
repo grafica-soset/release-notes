@@ -1,0 +1,32 @@
+# Artefatos de build/dev (gerados dentro da imagem)
+.output
+.nuxt
+.nitro
+.cache
+.data
+dist
+node_modules
+
+# Controle de versão e metadados
+.git
+.gitignore
+
+# Segredos e ambiente local — NUNCA entram na imagem
+.env
+.env.*
+!.env.example
+
+# Editores / SO
+.DS_Store
+.idea
+.fleet
+.vscode
+
+# Docs e CI (não precisam estar na imagem)
+docs
+cloudbuild.yaml
+*.md
+
+# Logs
+logs
+*.log

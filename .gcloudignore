@@ -1,0 +1,27 @@
+# Arquivos que NÃO devem subir para o Cloud Build.
+.git
+.gitignore
+
+# Artefatos locais (a imagem reconstrói tudo)
+node_modules
+.output
+.nuxt
+.nitro
+.cache
+.data
+dist
+
+# Segredos / ambiente local
+.env
+.env.*
+!.env.example
+
+# Editores / SO
+.DS_Store
+.idea
+.fleet
+.vscode
+
+# Logs
+logs
+*.log
