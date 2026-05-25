@@ -5,7 +5,7 @@ useHead({ title: 'Início — Release & Issue Tracker' })
 
 <template>
   <section class="max-w-3xl mx-auto text-center py-10 sm:py-16">
-    <span class="badge bg-brand-100 text-brand-700">Comunicação de entregas</span>
+    <span class="badge bg-brand-100 text-brand-700">Comunicação de entregas!</span>
     <h1 class="mt-3 text-3xl sm:text-4xl font-bold text-slate-800">
       Compartilhe releases, colete feedback e organize issues
     </h1>
